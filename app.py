@@ -5,6 +5,9 @@ from services.api_client import get_events, get_vacancies
 from models import db, User, Participation, FavoriteEvent, FavoriteVacancy
 from collections import Counter # Понадобится для радара
 import json # Понадобится для передачи данных в JS
+import os
+from werkzeug.utils import secure_filename
+from datetime import datetime
 
 app = Flask(__name__)
 
@@ -12,6 +15,11 @@ app = Flask(__name__)
 app.config['SECRET_KEY'] = 'super-secret-key-123'
 app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///career_track.db'
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
+
+# НОВЫЕ НАСТРОЙКИ ДЛЯ ФАЙЛОВ
+app.config['UPLOAD_FOLDER'] = os.path.join('static', 'uploads')
+app.config['MAX_CONTENT_LENGTH'] = 5 * 1024 * 1024 # Максимум 5 мегабайт на файл
+os.makedirs(app.config['UPLOAD_FOLDER'], exist_ok=True) # Создаст папку, если ее нет
 
 db.init_app(app)
 
@@ -46,6 +54,8 @@ def index():
     fav_event_ids =[]
     if current_user.is_authenticated:
         fav_event_ids =[f.event_id for f in FavoriteEvent.query.filter_by(user_id=current_user.id).all()]
+
+    today_date = datetime.now().strftime('%Y-%m-%d')  # Получаем сегодня в формате 2026-04-19
 
     return render_template(
         'index.html',
@@ -123,14 +133,21 @@ ACHIEVEMENTS = {
 
 
 def get_user_status(level):
-    """Динамические звания ученого в зависимости от уровня"""
-    if level == 1: return "Абитуриент-исследователь"
-    if level == 2: return "Лаборант-стажер"
-    if level == 3: return "Младший научный сотрудник"
-    if level == 4: return "Научный сотрудник"
-    if level == 5: return "Старший научный сотрудник"
-    if level <= 9: return "Кандидат наук"
-    return "Доктор наук / Академик 👑"
+    """Геймифицированные карьерные статусы, меняются медленно"""
+    if level <= 3:
+        return "Новичок-исследователь 🌱"
+    if level <= 6:
+        return "Искатель данных 🔍"
+    if level <= 10:
+        return "Уверенный аналитик 📊"
+    if level <= 15:
+        return "Продвинутый исследователь 🚀"
+    if level <= 20:
+        return "Мастер научного трека 🧠"
+    if level <= 30:
+        return "Эксперт инноваций 💡"
+
+    return "Визионер науки 🌟"
 
 
 @app.route('/profile')
@@ -205,20 +222,37 @@ def claim_reward():
     participation_id = request.form.get('participation_id')
     achievement_key = request.form.get('achievement')
 
+    # ПРОВЕРЯЕМ ФАЙЛ
+    if 'certificate' not in request.files:
+        flash('Необходимо прикрепить файл!', 'error')
+        return redirect(url_for('profile'))
+
+    file = request.files['certificate']
+    if file.filename == '':
+        flash('Файл не выбран!', 'error')
+        return redirect(url_for('profile'))
+
     participation = Participation.query.filter_by(id=participation_id, user_id=current_user.id).first()
 
     if participation and participation.status == 'registered' and achievement_key in ACHIEVEMENTS:
+        # Сохраняем файл физически
+        filename = secure_filename(file.filename)
+        # Добавляем ID юзера и время к названию, чтобы не было перезаписи одинаковых имен
+        unique_filename = f"user_{current_user.id}_{int(datetime.now().timestamp())}_{filename}"
+        file.save(os.path.join(app.config['UPLOAD_FOLDER'], unique_filename))
+
         reward_xp = ACHIEVEMENTS[achievement_key]['xp']
         achievement_name = ACHIEVEMENTS[achievement_key]['name']
 
-        # Начисляем награду
+        # Начисляем награду и сохраняем имя файла
         participation.status = 'completed'
         participation.achievement = achievement_name
         participation.earned_points = reward_xp
+        participation.certificate_file = unique_filename
         current_user.points += reward_xp
 
         db.session.commit()
-        flash(f'Вы получили {reward_xp} XP за достижение: {achievement_name}!', 'success')
+        flash(f'Документ загружен! Вы получили {reward_xp} XP за достижение: {achievement_name}!', 'success')
 
     return redirect(url_for('profile'))
 

@@ -43,18 +43,30 @@
 
                 {% if current_user.is_authenticated %}
                     <div style="display: flex; gap: 10px; margin-top: 15px;">
+
+                        <!-- ЛОГИКА ДАТ: Определяем, прошло ли мероприятие -->
+                        {% set event_date = event.periods[0].upper[:10] if event.periods and event.periods|length > 0 else '2099-12-31' %}
+
                         <form action="/participate" method="POST" style="flex: 1;">
                             <input type="hidden" name="event_id" value="{{ event.id }}">
                             <input type="hidden" name="event_title" value="{{ event.title }}">
-                            <button type="submit" class="btn" style="width: 100%; box-sizing: border-box;">Подать заявку</button>
+
+                            {% if event_date >= today_date %}
+                                <!-- ПРЕДСТОЯЩЕЕ -->
+                                <button type="submit" class="btn" style="width: 100%; box-sizing: border-box;">Подать заявку</button>
+                            {% else %}
+                                <!-- ПРОШЕДШЕЕ -->
+                                <button type="submit" class="btn" style="width: 100%; box-sizing: border-box; background: #8e44ad;" title="Мероприятие завершено. Вы можете добавить его в портфолио, загрузив диплом.">
+                                    Внести в портфолио
+                                </button>
+                            {% endif %}
                         </form>
 
+                        <!-- Кнопка Избранного остается как была... -->
                         <form action="/toggle_fav_event" method="POST">
                             <input type="hidden" name="event_id" value="{{ event.id }}">
                             <input type="hidden" name="event_title" value="{{ event.title }}">
-                            <button type="submit" class="btn" style="background: {{ '#e74c3c' if event.id in fav_event_ids else '#ecf0f1' }}; color: {{ '#fff' if event.id in fav_event_ids else '#333' }}; font-size: 1.2em; padding: 10px; width: 45px;" title="Добавить в избранное">
-                                ❤
-                            </button>
+                            <button type="submit" class="btn" style="background: {{ '#e74c3c' if event.id in fav_event_ids else '#ecf0f1' }}; color: {{ '#fff' if event.id in fav_event_ids else '#333' }}; font-size: 1.2em; padding: 10px; width: 45px;" title="Добавить в избранное">❤</button>
                         </form>
                     </div>
                 {% else %}

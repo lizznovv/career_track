@@ -26,13 +26,14 @@ class Participation(db.Model):
     event_title = db.Column(db.String(250), nullable=False)
     category = db.Column(db.String(100), nullable=True)
 
-    # НОВЫЕ ПОЛЯ ДЛЯ ГЕЙМИФИКАЦИИ
     status = db.Column(db.String(20), default='registered')  # 'registered' или 'completed'
-    achievement = db.Column(db.String(100), nullable=True)  # Победитель, Участник и тд
-    earned_points = db.Column(db.Integer, default=0)  # Сколько баллов принесло именно это событие
+    achievement = db.Column(db.String(100), nullable=True)
+    earned_points = db.Column(db.Integer, default=0)
+
+    # НОВОЕ ПОЛЕ: Хранит имя файла сертификата
+    certificate_file = db.Column(db.String(250), nullable=True)
 
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
-
 
 class FavoriteEvent(db.Model):
     __tablename__ = 'favorite_events'

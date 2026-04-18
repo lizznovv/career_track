@@ -24,14 +24,20 @@
     </nav>
 
     <div class="container">
-        <!-- Блок для вывода ошибок (например, неверный пароль) -->
-        {% with messages = get_flashed_messages() %}
+        <!-- Умный блок вывода сообщений -->
+        {% with messages = get_flashed_messages(with_categories=true) %}
             {% if messages %}
-                <div style="background: #ffcccc; color: #cc0000; padding: 10px; margin-bottom: 20px; border-radius: 5px;">
-                    {% for message in messages %}
-                        {{ message }}
-                    {% endfor %}
-                </div>
+                {% for category, message in messages %}
+                    {% if category == 'success' %}
+                        <div style="background: #2ecc71; color: white; padding: 10px; margin-bottom: 20px; border-radius: 5px; text-align: center; font-weight: bold;">
+                            {{ message }}
+                        </div>
+                    {% else %}
+                        <div style="background: #e74c3c; color: white; padding: 10px; margin-bottom: 20px; border-radius: 5px; text-align: center; font-weight: bold;">
+                            {{ message }}
+                        </div>
+                    {% endif %}
+                {% endfor %}
             {% endif %}
         {% endwith %}
 

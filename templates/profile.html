@@ -1,16 +1,6 @@
 {% extends 'base.html' %}
 
 {% block content %}
-    <!-- Вывод системных сообщений (flash) -->
-    {% with messages = get_flashed_messages(with_categories=true) %}
-        {% if messages %}
-            {% for category, message in messages %}
-                <div style="background: #2ecc71; color: white; padding: 10px; margin-bottom: 20px; border-radius: 5px; text-align: center; font-weight: bold;">
-                    {{ message }}
-                </div>
-            {% endfor %}
-        {% endif %}
-    {% endwith %}
 
     <div class="profile-header" style="margin-bottom: 20px;">
         <h1>Профиль: {{ user.name }}</h1>
@@ -43,7 +33,7 @@
             <!-- Ожидают подтверждения -->
             <div class="history-panel" style="border-left: 4px solid #f39c12;">
                 <h3>⏳ Ожидают подтверждения</h3>
-                <p style="font-size: 0.9em; color: #7f8c8d;">Укажите свой результат, чтобы получить XP</p>
+                <p style="font-size: 0.9em; color: #7f8c8d;">Прикрепите подтверждающий документ (сертификат, диплом, фото бейджа), чтобы получить XP.</p>
 
                 {% if pending_events %}
                     <ul style="list-style: none; padding: 0;">
@@ -52,15 +42,22 @@
                                 <strong>{{ p.event_title }}</strong><br>
                                 <small style="color: #3498db;">[{{ p.category }}]</small>
 
-                                <form action="/claim_reward" method="POST" style="margin-top: 10px; display: flex; gap: 10px;">
+                                <!-- ВАЖНО: enctype="multipart/form-data" для отправки файлов -->
+                                <form action="/claim_reward" method="POST" enctype="multipart/form-data" style="margin-top: 10px; display: flex; flex-direction: column; gap: 10px;">
                                     <input type="hidden" name="participation_id" value="{{ p.id }}">
-                                    <select name="achievement" required style="padding: 5px; border-radius: 4px; flex: 1;">
-                                        <option value="" disabled selected>Выберите результат...</option>
+
+                                    <select name="achievement" required style="padding: 8px; border-radius: 4px; border: 1px solid #ccc;">
+                                        <option value="" disabled selected>Какое место вы заняли?</option>
                                         {% for key, info in achievements_dict.items() %}
                                             <option value="{{ key }}">{{ info.name }} (+{{ info.xp }} XP)</option>
                                         {% endfor %}
                                     </select>
-                                    <button type="submit" class="btn" style="background: #f39c12; width: auto; padding: 5px 15px;">Подтвердить</button>
+
+                                    <!-- ПОЛЕ ЗАГРУЗКИ ФАЙЛА -->
+                                    <div style="display: flex; gap: 10px; align-items: center;">
+                                        <input type="file" name="certificate" accept=".pdf,.jpg,.jpeg,.png" required style="flex: 1; font-size: 0.9em;">
+                                        <button type="submit" class="btn" style="background: #f39c12; width: auto; padding: 8px 15px;">Отправить</button>
+                                    </div>
                                 </form>
                             </li>
                         {% endfor %}
@@ -81,6 +78,12 @@
                                 <span style="display: inline-block; background: #2ecc71; color: white; padding: 2px 8px; border-radius: 10px; font-size: 0.8em; margin-top: 5px;">
                                     {{ p.achievement }} (+{{ p.earned_points }} XP)
                                 </span>
+                                <!-- ССЫЛКА НА ФАЙЛ -->
+                                {% if p.certificate_file %}
+                                    <a href="{{ url_for('static', filename='uploads/' ~ p.certificate_file) }}" target="_blank" style="margin-left: 10px; font-size: 0.85em; color: #3498db; text-decoration: none;">
+                                        📄 Посмотреть диплом
+                                    </a>
+                                {% endif %}
                             </li>
                         {% endfor %}
                     </ul>
