@@ -1,59 +1,95 @@
 {% extends 'base.html' %}
 
 {% block content %}
+    <!-- Вывод системных сообщений (flash) -->
+    {% with messages = get_flashed_messages(with_categories=true) %}
+        {% if messages %}
+            {% for category, message in messages %}
+                <div style="background: #2ecc71; color: white; padding: 10px; margin-bottom: 20px; border-radius: 5px; text-align: center; font-weight: bold;">
+                    {{ message }}
+                </div>
+            {% endfor %}
+        {% endif %}
+    {% endwith %}
+
     <div class="profile-header" style="margin-bottom: 20px;">
         <h1>Профиль: {{ user.name }}</h1>
-        <p class="status">Академический статус: <strong>{{ user.status }}</strong></p>
+        <p class="status">Академический статус: <strong style="color: #2c3e50; font-size: 1.2em;">{{ user_status }}</strong></p>
     </div>
 
-    <!-- Создаем сетку из 2 колонок для профиля -->
     <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 20px; align-items: start;">
 
-        <!-- Левая колонка: Прогресс и Радар -->
+        <!-- ЛЕВАЯ КОЛОНКА -->
         <div>
+            <!-- Прогресс бар -->
             <div class="gamification-panel">
-                <h2>Уровень {{ level }} ({{ user.points }} XP)</h2>
+                <h2>Уровень {{ level }} (Всего: {{ user.points }} XP)</h2>
                 <div class="progress-bar-bg">
-                    <div class="progress-bar-fill" style="width: {{ progress }}%;"></div>
+                    <div class="progress-bar-fill" style="width: {{ progress_percent }}%;"></div>
                 </div>
-                <p><small>{{ 100 - progress }} XP до следующего уровня</small></p>
+                <p><small>Собрано {{ progress }} XP из {{ xp_per_level }} до следующего уровня</small></p>
             </div>
 
-            <!-- РАДАР КОМПЕТЕНЦИЙ -->
+            <!-- Радар компетенций -->
             <div class="history-panel" style="margin-top: 20px; text-align: center;">
                 <h3>Мои компетенции</h3>
                 <canvas id="radarChart" width="400" height="400"></canvas>
+                <p style="font-size: 0.8em; color: #7f8c8d; margin-top: 10px;">(Строится только по подтвержденным мероприятиям)</p>
             </div>
         </div>
 
-        <!-- Правая колонка: История и Избранное -->
+        <!-- ПРАВАЯ КОЛОНКА -->
         <div>
-            <div class="history-panel">
-                <h3>📚 Посещенные мероприятия</h3>
-                {% if user.participations %}
-                    <ul style="padding-left: 20px;">
-                        {% for p in user.participations %}
-                            <li style="margin-bottom: 8px;">✅ {{ p.event_title }} <br><small style="color: #3498db;">[{{ p.category }}]</small></li>
+            <!-- Ожидают подтверждения -->
+            <div class="history-panel" style="border-left: 4px solid #f39c12;">
+                <h3>⏳ Ожидают подтверждения</h3>
+                <p style="font-size: 0.9em; color: #7f8c8d;">Укажите свой результат, чтобы получить XP</p>
+
+                {% if pending_events %}
+                    <ul style="list-style: none; padding: 0;">
+                        {% for p in pending_events %}
+                            <li style="background: #f9f9f9; padding: 15px; border-radius: 5px; margin-bottom: 10px;">
+                                <strong>{{ p.event_title }}</strong><br>
+                                <small style="color: #3498db;">[{{ p.category }}]</small>
+
+                                <form action="/claim_reward" method="POST" style="margin-top: 10px; display: flex; gap: 10px;">
+                                    <input type="hidden" name="participation_id" value="{{ p.id }}">
+                                    <select name="achievement" required style="padding: 5px; border-radius: 4px; flex: 1;">
+                                        <option value="" disabled selected>Выберите результат...</option>
+                                        {% for key, info in achievements_dict.items() %}
+                                            <option value="{{ key }}">{{ info.name }} (+{{ info.xp }} XP)</option>
+                                        {% endfor %}
+                                    </select>
+                                    <button type="submit" class="btn" style="background: #f39c12; width: auto; padding: 5px 15px;">Подтвердить</button>
+                                </form>
+                            </li>
                         {% endfor %}
                     </ul>
                 {% else %}
-                    <p style="color: #7f8c8d;">Вы еще не записались на мероприятия.</p>
+                    <p style="color: #7f8c8d;">У вас нет незавершенных мероприятий.</p>
                 {% endif %}
             </div>
 
-            <div class="history-panel" style="margin-top: 20px;">
-                <h3>❤ Избранные мероприятия</h3>
-                {% if user.favorite_events %}
-                    <ul style="padding-left: 20px;">
-                        {% for fav in user.favorite_events %}
-                            <li style="margin-bottom: 8px;">{{ fav.event_title }}</li>
+            <!-- Завершенные достижения -->
+            <div class="history-panel" style="margin-top: 20px; border-left: 4px solid #2ecc71;">
+                <h3>🏆 Подтвержденные достижения</h3>
+                {% if completed_events %}
+                    <ul style="list-style: none; padding: 0;">
+                        {% for p in completed_events %}
+                            <li style="margin-bottom: 10px; background: #f4f7f6; padding: 10px; border-radius: 5px;">
+                                <strong>{{ p.event_title }}</strong> <br>
+                                <span style="display: inline-block; background: #2ecc71; color: white; padding: 2px 8px; border-radius: 10px; font-size: 0.8em; margin-top: 5px;">
+                                    {{ p.achievement }} (+{{ p.earned_points }} XP)
+                                </span>
+                            </li>
                         {% endfor %}
                     </ul>
                 {% else %}
-                    <p style="color: #7f8c8d;">Нет сохраненных мероприятий.</p>
+                    <p style="color: #7f8c8d;">Пока нет достижений. Подтвердите участие выше!</p>
                 {% endif %}
             </div>
 
+            <!-- Избранные вакансии (скрыл мероприятия для экономии места) -->
             <div class="history-panel" style="margin-top: 20px;">
                 <h3>💼 Избранные вакансии</h3>
                 {% if user.favorite_vacancies %}
@@ -62,7 +98,7 @@
                             <li style="margin-bottom: 8px;">
                                 {{ fav.vacancy_title }}
                                 {% if fav.hh_url %}
-                                    <a href="{{ fav.hh_url }}" target="_blank" style="font-size: 0.8em; color: #2ecc71;">[Ссылка]</a>
+                                    <a href="{{ fav.hh_url }}" target="_blank" style="font-size: 0.8em; color: #2ecc71;">[Перейти]</a>
                                 {% endif %}
                             </li>
                         {% endfor %}
@@ -71,6 +107,7 @@
                     <p style="color: #7f8c8d;">Нет сохраненных вакансий.</p>
                 {% endif %}
             </div>
+
         </div>
     </div>
 
@@ -79,8 +116,6 @@
     <script>
         document.addEventListener('DOMContentLoaded', function() {
             const ctx = document.getElementById('radarChart').getContext('2d');
-
-            // Получаем данные из Flask
             const labels = JSON.parse('{{ radar_labels | safe }}');
             const data = JSON.parse('{{ radar_data | safe }}');
 
@@ -89,24 +124,17 @@
                 data: {
                     labels: labels,
                     datasets:[{
-                        label: 'Количество участий',
+                        label: 'Подтверждено участий',
                         data: data,
-                        backgroundColor: 'rgba(52, 152, 219, 0.4)',
-                        borderColor: 'rgba(41, 128, 185, 1)',
-                        pointBackgroundColor: 'rgba(41, 128, 185, 1)',
+                        backgroundColor: 'rgba(46, 204, 113, 0.4)',
+                        borderColor: 'rgba(39, 174, 96, 1)',
+                        pointBackgroundColor: 'rgba(39, 174, 96, 1)',
                         borderWidth: 2
                     }]
                 },
                 options: {
-                    scales: {
-                        r: {
-                            beginAtZero: true,
-                            ticks: { stepSize: 1, precision: 0 } // Показывать только целые числа
-                        }
-                    },
-                    plugins: {
-                        legend: { display: false } // Убираем лишнюю легенду
-                    }
+                    scales: { r: { beginAtZero: true, ticks: { stepSize: 1, precision: 0 } } },
+                    plugins: { legend: { display: false } }
                 }
             });
         });

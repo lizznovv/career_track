@@ -30,8 +30,6 @@ with app.app_context():
     db.create_all()
 
 
-def calculate_level(points):
-    return (points // 100) + 1
 
 
 @app.route('/')
@@ -110,24 +108,58 @@ def logout():
 
 # --- ОБНОВЛЕННЫЕ СТАРЫЕ МАРШРУТЫ ---
 
+# --- СИСТЕМА ГЕЙМИФИКАЦИИ ---
+# Сколько XP нужно на 1 уровень (сделаем 300, чтобы расти было сложнее)
+XP_PER_LEVEL = 300
+
+# Матрица наград
+ACHIEVEMENTS = {
+    'participant': {'name': 'Участник / Слушатель', 'xp': 50},
+    'speaker': {'name': 'Спикер / Докладчик', 'xp': 150},
+    'prize_3': {'name': 'Призёр 3-й степени', 'xp': 200},
+    'prize_2': {'name': 'Призёр 2-й степени', 'xp': 250},
+    'winner': {'name': 'Победитель (1-е место)', 'xp': 400}
+}
+
+
+def get_user_status(level):
+    """Динамические звания ученого в зависимости от уровня"""
+    if level == 1: return "Абитуриент-исследователь"
+    if level == 2: return "Лаборант-стажер"
+    if level == 3: return "Младший научный сотрудник"
+    if level == 4: return "Научный сотрудник"
+    if level == 5: return "Старший научный сотрудник"
+    if level <= 9: return "Кандидат наук"
+    return "Доктор наук / Академик 👑"
+
+
 @app.route('/profile')
 @login_required
 def profile():
-    level = calculate_level(current_user.points)
-    progress = current_user.points % 100
+    # Вычисляем математику уровней
+    level = (current_user.points // XP_PER_LEVEL) + 1
+    progress = current_user.points % XP_PER_LEVEL
+    progress_percent = int((progress / XP_PER_LEVEL) * 100)
+    user_status = get_user_status(level)
 
-    # ЛОГИКА ДЛЯ РАДАРА КОМПЕТЕНЦИЙ
     participations = Participation.query.filter_by(user_id=current_user.id).all()
-    categories = [p.category for p in participations if p.category]
-    counts = Counter(categories)
 
-    # Базовые направления (чтобы график рисовался ровно, даже если там 0)
+    # Разделяем на "Запланированные" и "Завершенные"
+    pending_events = [p for p in participations if p.status == 'registered']
+    completed_events = [p for p in participations if p.status == 'completed']
+
+    # РАДАР КОМПЕТЕНЦИЙ (теперь считаем только ЗАВЕРШЕННЫЕ мероприятия!)
+    categories = [p.category for p in completed_events if p.category]
+    counts = Counter(categories)
     base_categories = ['IT и Data Science', 'Биомед', 'Физмат и Инженерия', 'Экономика', 'Гуманитарные и общие']
     radar_data = [counts.get(cat, 0) for cat in base_categories]
 
     return render_template(
         'profile.html',
         user=current_user, level=level, progress=progress,
+        progress_percent=progress_percent, xp_per_level=XP_PER_LEVEL, user_status=user_status,
+        pending_events=pending_events, completed_events=completed_events,
+        achievements_dict=ACHIEVEMENTS,  # Передаем словарь для выпадающего списка
         radar_labels=json.dumps(base_categories),
         radar_data=json.dumps(radar_data)
     )
@@ -141,8 +173,8 @@ def participate():
 
     existing_entry = Participation.query.filter_by(user_id=current_user.id, event_id=event_id).first()
 
+    # ТЕПЕРЬ МЫ НЕ ДАЕМ ОЧКИ СРАЗУ. Просто регистрируем заявку.
     if not existing_entry:
-        # Простенький алгоритм определения компетенции по названию (для MVP)
         title_lower = event_title.lower()
         if any(w in title_lower for w in ['информ', 'ит', 'it', 'данн', 'нейро', 'программ', 'ии']):
             cat = 'IT и Data Science'
@@ -155,14 +187,40 @@ def participate():
         else:
             cat = 'Гуманитарные и общие'
 
-        new_participation = Participation(user_id=current_user.id, event_id=event_id, event_title=event_title,
-                                          category=cat)
-        current_user.points += 50
+        new_participation = Participation(
+            user_id=current_user.id, event_id=event_id,
+            event_title=event_title, category=cat, status='registered'
+        )
         db.session.add(new_participation)
         db.session.commit()
+        flash('Вы успешно подали заявку! Завершите участие в профиле, чтобы получить XP.', 'success')
 
-    return redirect(request.referrer or url_for('index'))  # Возвращает туда, откуда нажали
+    return redirect(request.referrer or url_for('index'))
 
+
+# НОВЫЙ РОУТ ДЛЯ ПОДТВЕРЖДЕНИЯ РЕЗУЛЬТАТОВ
+@app.route('/claim_reward', methods=['POST'])
+@login_required
+def claim_reward():
+    participation_id = request.form.get('participation_id')
+    achievement_key = request.form.get('achievement')
+
+    participation = Participation.query.filter_by(id=participation_id, user_id=current_user.id).first()
+
+    if participation and participation.status == 'registered' and achievement_key in ACHIEVEMENTS:
+        reward_xp = ACHIEVEMENTS[achievement_key]['xp']
+        achievement_name = ACHIEVEMENTS[achievement_key]['name']
+
+        # Начисляем награду
+        participation.status = 'completed'
+        participation.achievement = achievement_name
+        participation.earned_points = reward_xp
+        current_user.points += reward_xp
+
+        db.session.commit()
+        flash(f'Вы получили {reward_xp} XP за достижение: {achievement_name}!', 'success')
+
+    return redirect(url_for('profile'))
 
 # --- РОУТЫ ИЗБРАННОГО ---
 @app.route('/toggle_fav_event', methods=['POST'])
