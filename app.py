@@ -2,12 +2,13 @@ from flask import Flask, render_template, request, redirect, url_for, flash
 from flask_login import LoginManager, login_user, logout_user, login_required, current_user
 from werkzeug.security import generate_password_hash, check_password_hash
 from services.api_client import get_events, get_vacancies
-from models import db, User, Participation, FavoriteEvent, FavoriteVacancy
+from models import db, User, Participation, FavoriteEvent, FavoriteVacancy, RegisterValidation
 from collections import Counter # Понадобится для радара
 import json # Понадобится для передачи данных в JS
 import os
 from werkzeug.utils import secure_filename
 from datetime import datetime
+from pydantic import ValidationError
 
 app = Flask(__name__)
 
@@ -28,17 +29,12 @@ login_manager = LoginManager()
 login_manager.login_view = 'login'  # Куда отправлять неавторизованных
 login_manager.init_app(app)
 
-
 @login_manager.user_loader
 def load_user(user_id):
     return User.query.get(int(user_id))
 
-
 with app.app_context():
     db.create_all()
-
-
-
 
 @app.route('/')
 def index():
@@ -73,25 +69,45 @@ def index():
 @app.route('/register', methods=['GET', 'POST'])
 def register():
     if request.method == 'POST':
-        username = request.form.get('username')
-        name = request.form.get('name')
-        password = request.form.get('password')
+        try:
+            data = RegisterValidation(
+                username = request.form.get('username'),
+                mail = request.form.get('mail'),
+                password = request.form.get('password'),
+                role=request.form.get('role')
+            )
+        except ValidationError as e:
+            flash("Некорректные данные")
+
+            for error in e.errors():
+                flash(error['msg'])
+
+            return redirect(url_for('register'))
 
         # Проверка, есть ли такой логин
-        if User.query.filter_by(username=username).first():
-            flash('Этот логин уже занят!')
+        if User.query.filter_by(username=data.username).first():
+            flash('Это имя уже занято!')
+            return redirect(url_for('register'))
+
+        if User.query.filter_by(mail=data.mail).first():
+            flash('Этот mail уже занят!')
             return redirect(url_for('register'))
 
         # Создаем пользователя, шифруя пароль
-        hashed_password = generate_password_hash(password, method='pbkdf2:sha256')
-        new_user = User(username=username, name=name, password=hashed_password)
+        hashed_password = generate_password_hash(data.password, method='pbkdf2:sha256')
+        new_user = User(username=data.username, mail=data.mail, password=hashed_password, role=data.role.value)
 
         db.session.add(new_user)
         db.session.commit()
 
         # Сразу логиним его после регистрации
         login_user(new_user)
-        return redirect(url_for('profile'))
+
+        if (new_user.role == 'user'):
+            return redirect(url_for('profile'))
+
+        elif (new_user.role == 'company'):
+            return redirect(url_for('company_profile'))
 
     return render_template('register.html')
 
@@ -99,15 +115,20 @@ def register():
 @app.route('/login', methods=['GET', 'POST'])
 def login():
     if request.method == 'POST':
-        username = request.form.get('username')
+        mail = request.form.get('mail')
         password = request.form.get('password')
 
-        user = User.query.filter_by(username=username).first()
+        user = User.query.filter_by(mail=mail).first()
 
         # Проверяем пароль
         if user and check_password_hash(user.password, password):
             login_user(user)
-            return redirect(url_for('profile'))
+
+            if (user.role == 'user'):
+                return redirect(url_for('profile'))
+
+            elif (user.role == 'company'):
+                return redirect(url_for('company_profile'))
         else:
             flash('Неверный логин или пароль!')
 
@@ -186,6 +207,20 @@ def profile():
         radar_data=json.dumps(radar_data)
     )
 
+@app.route('/company_profile')
+@login_required
+def company_profile():
+    open_vacancies = 0;
+    total_responses = 0;
+    saved_candidates = 0;
+    visited_events = 0;
+
+    return render_template(
+        'company_profile.html',
+        company=current_user, open_vacancies=open_vacancies,
+        total_responses=total_responses, saved_candidates=saved_candidates,
+        visited_events=visited_events
+    )
 
 @app.route('/participate', methods=['POST'])
 @login_required
@@ -313,6 +348,20 @@ def vacancies():
         vacancies=vacancies_list, current_page=page, total_pages=total_pages,
         search_query=search_query, salary_from=salary_from,
         fav_vacancy_ids=fav_vacancy_ids # Передаем в шаблон
+    )
+
+@app.route('/search_talents')
+@login_required
+def search_talents():
+    #перестраховка
+    if current_user.role != 'company':
+        return redirect(url_for('profile'))
+
+    users = User.query.filter_by(role='user').all()
+
+    return render_template(
+        'search_talents.html',
+        users=users
     )
 
 if __name__ == '__main__':

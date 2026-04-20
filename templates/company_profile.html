@@ -1,0 +1,99 @@
+{% extends 'base.html' %}
+
+{% block content %}
+
+<div class="profile-header" style="margin-bottom: 20px;">
+    <h1>Компания: {{ company.name }}</h1>
+    <p class="status">
+        Статус работодателя:
+        <strong style="color: #2c3e50; font-size: 1.2em;">
+            {{ company_status }}
+        </strong>
+    </p>
+</div>
+
+<div style="display: grid; grid-template-columns: 1fr 1fr; gap: 20px; align-items: start;">
+
+    <!-- ЛЕВАЯ КОЛОНКА -->
+    <div>
+
+        <!-- Информация о компании -->
+        <div class="gamification-panel">
+            <h2>О компании</h2>
+            <p><strong>Отрасль:</strong> {{ company.industry }}</p>
+            <p><strong>Сайт:</strong> {{ company.website }}</p>
+            <p style="margin-top: 15px;">
+                {{ company.description }}
+            </p>
+        </div>
+
+        <!-- Статистика -->
+        <div class="history-panel" style="margin-top: 20px;">
+            <h3>Активность компании</h3>
+
+            <p>Открытых вакансий: <strong>{{ open_vacancies }}</strong></p>
+            <p>Всего откликов: <strong>{{ total_responses }}</strong></p>
+            <p>Сохранённых кандидатов: <strong>{{ saved_candidates }}</strong></p>
+            <p>Посещённых мероприятий: <strong>{{ visited_events }}</strong></p>
+        </div>
+
+    </div>
+
+    <!-- ПРАВАЯ КОЛОНКА -->
+    <div>
+
+        <!-- Вакансии -->
+        <div class="history-panel" style="border-left: 4px solid #f39c12;">
+            <h3>💼 Наши вакансии</h3>
+
+            {% if vacancies %}
+                {% for vacancy in vacancies %}
+                    <div style="margin-bottom: 15px; padding-bottom: 10px; border-bottom: 1px solid #ecf0f1;">
+                        <strong>{{ vacancy.title }}</strong><br>
+                        <small>
+                            Откликов: {{ vacancy.responses_count }} |
+                            Просмотров: {{ vacancy.views }}
+                        </small><br>
+
+                        <a href="{{ url_for('vacancy_detail', vacancy_id=vacancy.id) }}"
+                           style="color: #2980b9;">
+                            Смотреть статистику
+                        </a>
+                    </div>
+                {% endfor %}
+            {% else %}
+                <p>У вас пока нет созданных вакансий.</p>
+            {% endif %}
+        </div>
+
+        <!-- Последние кандидаты -->
+        <div class="history-panel" style="margin-top: 20px; border-left: 4px solid #27ae60;">
+            <h3>🔍 Новые таланты</h3>
+
+            {% if candidates %}
+                {% for candidate in candidates %}
+                    <div style="margin-bottom: 12px;">
+                        <strong>{{ candidate.username }}</strong><br>
+                        <small>
+                            Уровень {{ candidate.level }} |
+                            {{ candidate.direction }}
+                        </small>
+                    </div>
+                {% endfor %}
+            {% else %}
+                <p>Пока нет новых кандидатов.</p>
+            {% endif %}
+        </div>
+
+        <!-- CTA -->
+        <div class="history-panel" style="margin-top: 20px; text-align: center;">
+            <a href="" class="btn">
+                Создать вакансию
+            </a>
+        </div>
+
+    </div>
+
+</div>
+
+{% endblock %}

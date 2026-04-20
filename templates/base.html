@@ -10,12 +10,20 @@
         <div class="logo">ScienceTrack</div>
         <ul class="nav-links">
             <li><a href="/">Мероприятия</a></li>
-            <li><a href="/vacancies">Вакансии</a></li>
 
             <!-- Проверяем, залогинен ли пользователь -->
             {% if current_user.is_authenticated %}
-                <li><a href="/profile">Профиль ({{ current_user.name }})</a></li>
-                <li><a href="/logout">Выйти</a></li>
+
+                {% if current_user.role == 'company' %}
+                    <a href="{{ url_for('search_talents') }}">Поиск талантов</a>
+                    <a href="{{ url_for('company_profile') }}">Компания</a>
+                {% else %}
+                    <a href="{{ url_for('vacancies') }}">Вакансии</a>
+                    <a href="{{ url_for('profile') }}">Профиль</a>
+                {% endif %}
+
+                <a href="{{ url_for('logout') }}">Выйти</a>
+
             {% else %}
                 <li><a href="/login">Вход</a></li>
                 <li><a href="/register">Регистрация</a></li>

@@ -1,0 +1,15 @@
+{% extends 'base.html' %}
+
+{% block content %}
+
+<h1>Поиск талантов</h1>
+
+{% for user in users %}
+    <div class="history-panel" style="margin-bottom:15px;">
+        <h3>{{ user.username }}</h3>
+        <p>Email: {{ user.mail }}</p>
+        <p>Уровень: {{ user.points }}</p>
+    </div>
+{% endfor %}
+
+{% endblock %}
