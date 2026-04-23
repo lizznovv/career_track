@@ -79,3 +79,16 @@ class FavoriteVacancy(db.Model):
     vacancy_id = db.Column(db.Integer, nullable=False)
     vacancy_title = db.Column(db.String(250), nullable=False)
     hh_url = db.Column(db.String(500), nullable=True)
+
+class InternalVacancy(db.Model):
+    __tablename__ = 'internal_vacancies'
+    id = db.Column(db.Integer, primary_key=True)
+    company_id = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=False)
+    title = db.Column(db.String(250), nullable=False)
+    salary_from = db.Column(db.Integer, nullable=True)
+    salary_to = db.Column(db.Integer, nullable=True)
+    experience = db.Column(db.String(100))
+    schedule = db.Column(db.String(100))
+    category = db.Column(db.String(100))
+    description = db.Column(db.Text, nullable=False)
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)

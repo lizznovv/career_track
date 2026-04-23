@@ -2,7 +2,7 @@ from flask import Flask, render_template, request, redirect, url_for, flash
 from flask_login import LoginManager, login_user, logout_user, login_required, current_user
 from werkzeug.security import generate_password_hash, check_password_hash
 from services.api_client import get_events, get_vacancies
-from models import db, User, Participation, FavoriteEvent, FavoriteVacancy, RegisterValidation
+from models import db, User, Participation, FavoriteEvent, FavoriteVacancy, RegisterValidation, InternalVacancy, CompanyProfile
 from collections import Counter # Понадобится для радара
 import json # Понадобится для передачи данных в JS
 import os
@@ -94,7 +94,7 @@ def register():
             return redirect(url_for('register'))
 
         # Создаем пользователя, шифруя пароль
-        hashed_password = generate_password_hash(data.password, method='pbkdf2:sha256')
+        hashed_password = generate_password_hash(data.password)
         new_user = User(username=data.username, mail=data.mail, password=hashed_password, role=data.role.value)
 
         db.session.add(new_user)
@@ -120,17 +120,16 @@ def login():
 
         user = User.query.filter_by(mail=mail).first()
 
-        # Проверяем пароль
         if user and check_password_hash(user.password, password):
             login_user(user)
 
-            if (user.role == 'user'):
-                return redirect(url_for('profile'))
-
-            elif (user.role == 'company'):
+            # Убедимся, что редирект сработает в любом случае
+            if user.role == 'company':
                 return redirect(url_for('company_profile'))
+            else:
+                return redirect(url_for('profile'))  # Это будет роль по умолчанию
         else:
-            flash('Неверный логин или пароль!')
+            flash('Неверный логин или пароль!', 'error')  # Добавили категорию 'error'
 
     return render_template('login.html')
 
@@ -207,19 +206,137 @@ def profile():
         radar_data=json.dumps(radar_data)
     )
 
+
 @app.route('/company_profile')
 @login_required
 def company_profile():
-    open_vacancies = 0;
-    total_responses = 0;
-    saved_candidates = 0;
-    visited_events = 0;
+    if current_user.role != 'company':
+        return redirect(url_for('profile'))
+
+    # Ищем дополнительную инфу компании
+    profile_data = CompanyProfile.query.filter_by(user_id=current_user.id).first()
+
+    my_vacancies = InternalVacancy.query.filter_by(company_id=current_user.id).order_by(InternalVacancy.created_at.desc()).all()
+    open_vacancies = len(my_vacancies)
+
+    # --- АНАЛИТИКА ДЛЯ ДИАГРАММЫ КОМПАНИИ ---
+    # Собираем все категории из созданных вакансий
+    categories =[v.category for v in my_vacancies if v.category]
+    counts = Counter(categories)
+
+    # Если вакансий нет, показываем "заглушку"
+    if not counts:
+        chart_labels = ['Пока нет вакансий']
+        chart_data =[1]
+        background_colors = ['#ecf0f1']
+    else:
+        chart_labels = list(counts.keys())
+        chart_data = list(counts.values())
+        # Привязываем фирменные цвета к направлениям
+        colors_map = {
+            'IT и Data Science': '#3498db',
+            'Биомед': '#2ecc71',
+            'Физмат и Инженерия': '#9b59b6',
+            'Экономика': '#f1c40f',
+            'Гуманитарные и общие': '#e67e22'
+        }
+        background_colors =[colors_map.get(lbl, '#95a5a6') for lbl in chart_labels]
+
+    # Заглушки для будущих фич
+    total_responses = 0
+    saved_candidates = 0
+    visited_events = 0
 
     return render_template(
         'company_profile.html',
-        company=current_user, open_vacancies=open_vacancies,
-        total_responses=total_responses, saved_candidates=saved_candidates,
-        visited_events=visited_events
+        company=current_user,
+        profile_data=profile_data,
+        open_vacancies=open_vacancies,
+        total_responses=total_responses,
+        saved_candidates=saved_candidates,
+        visited_events=visited_events,
+        chart_labels=json.dumps(chart_labels),
+        chart_data=json.dumps(chart_data),
+        chart_colors=json.dumps(background_colors)
+    )
+
+
+@app.route('/edit_company_profile', methods=['GET', 'POST'])
+@login_required
+def edit_company_profile():
+    if current_user.role != 'company':
+        return redirect(url_for('profile'))
+
+    # Ищем профиль компании в БД (он может быть еще не создан)
+    profile_data = CompanyProfile.query.filter_by(user_id=current_user.id).first()
+
+    if request.method == 'POST':
+        industry = request.form.get('industry')
+        website = request.form.get('website')
+        description = request.form.get('description')
+
+        if profile_data:
+            # Если профиль уже есть — обновляем данные
+            profile_data.industry = industry
+            profile_data.website = website
+            profile_data.description = description
+        else:
+            # Если компания зашла сюда впервые — создаем запись в таблице
+            new_profile = CompanyProfile(
+                user_id=current_user.id,
+                industry=industry,
+                website=website,
+                description=description
+            )
+            db.session.add(new_profile)
+
+        db.session.commit()
+        flash('Профиль компании успешно обновлен!', 'success')
+        return redirect(url_for('company_profile'))
+
+    # При GET запросе отдаем форму, заполненную текущими данными
+    return render_template('edit_company_profile.html', profile_data=profile_data)
+
+# --- НОВЫЕ РОУТЫ ---
+
+@app.route('/company_vacancies')
+@login_required
+def company_vacancies():
+    if current_user.role != 'company':
+        return redirect(url_for('profile'))
+
+    my_vacancies = InternalVacancy.query.filter_by(company_id=current_user.id).order_by(
+        InternalVacancy.created_at.desc()).all()
+    return render_template('company_vacancies.html', vacancies=my_vacancies)
+
+
+@app.route('/vacancy/<int:vacancy_id>')
+def vacancy_detail(vacancy_id):
+    # Детальная страница созданной вакансии
+    vacancy = InternalVacancy.query.get_or_404(vacancy_id)
+    return render_template('vacancy_detail.html', vacancy=vacancy)
+
+
+@app.route('/talent/<int:user_id>')
+@login_required
+def talent_detail(user_id):
+    if current_user.role != 'company':
+        return redirect(url_for('profile'))
+
+    talent = User.query.get_or_404(user_id)
+
+    # Логика радара для выбранного таланта
+    completed_events = [p for p in talent.participations if p.status == 'completed']
+    categories = [p.category for p in completed_events if p.category]
+    counts = Counter(categories)
+    base_categories = ['IT и Data Science', 'Биомед', 'Физмат и Инженерия', 'Экономика', 'Гуманитарные и общие']
+    radar_data = [counts.get(cat, 0) for cat in base_categories]
+
+    return render_template(
+        'talent_detail.html',
+        talent=talent,
+        radar_labels=json.dumps(base_categories),
+        radar_data=json.dumps(radar_data)
     )
 
 @app.route('/participate', methods=['POST'])
@@ -363,6 +480,31 @@ def search_talents():
         'search_talents.html',
         users=users
     )
+
+@app.route('/create_vacancy', methods=['GET', 'POST'])
+@login_required
+def create_vacancy():
+    if current_user.role != 'company':
+        return redirect(url_for('profile'))
+
+    if request.method == 'POST':
+        # Сюда можно добавить валидацию Pydantic, как вы делали при регистрации!
+        new_vacancy = InternalVacancy(
+            company_id=current_user.id,
+            title=request.form.get('title'),
+            salary_from=request.form.get('salary_from') or None,
+            salary_to=request.form.get('salary_to') or None,
+            experience=request.form.get('experience'),
+            schedule=request.form.get('schedule'),
+            category=request.form.get('category'),
+            description=request.form.get('description')
+        )
+        db.session.add(new_vacancy)
+        db.session.commit()
+        flash('Вакансия успешно опубликована!', 'success')
+        return redirect(url_for('company_profile'))
+
+    return render_template('create_vacancy.html')
 
 if __name__ == '__main__':
     app.run(debug=True)

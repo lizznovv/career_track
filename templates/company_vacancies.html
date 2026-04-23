@@ -1,0 +1,33 @@
+{% extends 'base.html' %}
+{% block content %}
+<div class="flex-row" style="justify-content: space-between; margin-bottom: 20px;">
+    <h1>Управление вакансиями</h1>
+    <a href="{{ url_for('create_vacancy') }}" class="btn btn-success">Добавить вакансию</a>
+</div>
+
+{% if vacancies %}
+    <div class="events-grid">
+        {% for vacancy in vacancies %}
+        <div class="card history-panel border-warning">
+            <strong class="text-dark">{{ vacancy.title }}</strong>
+            <small class="text-muted" style="margin-top: 5px;">
+                {{ vacancy.experience }} | {{ vacancy.schedule }} <br>
+                {% if vacancy.salary_from and vacancy.salary_to %}
+                    {{ vacancy.salary_from }} - {{ vacancy.salary_to }} ₽
+                {% elif vacancy.salary_from %}
+                    от {{ vacancy.salary_from }} ₽
+                {% else %}
+                    Зарплата не указана
+                {% endif %}
+            </small>
+            <span class="badge badge-blue">{{ vacancy.category }}</span>
+            <div style="margin-top: 15px;">
+                <a href="{{ url_for('vacancy_detail', vacancy_id=vacancy.id) }}" class="btn btn-primary w-100">Просмотр и отклики</a>
+            </div>
+        </div>
+        {% endfor %}
+    </div>
+{% else %}
+    <p class="text-muted">У вас пока нет созданных вакансий.</p>
+{% endif %}
+{% endblock %}

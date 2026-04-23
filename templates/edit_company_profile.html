@@ -1,0 +1,35 @@
+{% extends 'base.html' %}
+{% block content %}
+<div class="create-form-container">
+    <h2 class="text-dark" style="margin-top: 0;">Настройки профиля компании</h2>
+    <p class="text-muted">Расскажите о вашей компании подробнее, чтобы привлечь больше молодых талантов.</p>
+
+    <!-- Форма отправляет данные POST-запросом -->
+    <form action="{{ url_for('edit_company_profile') }}" method="POST" class="flex-col">
+        
+        <div>
+            <label for="industry" class="form-label">Отрасль</label>
+            <input type="text" id="industry" name="industry" class="form-control" 
+                   placeholder="Например: Биотехнологии, IT, Образование" 
+                   value="{{ profile_data.industry if profile_data and profile_data.industry else '' }}">
+        </div>
+
+        <div>
+            <label for="website" class="form-label">Сайт компании</label>
+            <input type="url" id="website" name="website" class="form-control" 
+                   placeholder="https://example.com" 
+                   value="{{ profile_data.website if profile_data and profile_data.website else '' }}">
+        </div>
+
+        <div>
+            <label for="description" class="form-label">Описание компании</label>
+            <textarea id="description" name="description" rows="5" class="form-control" 
+                      style="resize: vertical; font-family: inherit;" 
+                      placeholder="Чем занимается компания, кого ищет, какие технологии использует...">{{ profile_data.description if profile_data and profile_data.description else '' }}</textarea>
+        </div>
+
+        <button type="submit" class="btn btn-success" style="margin-top: 10px; padding: 12px; font-size: 1.1em;">Сохранить изменения</button>
+        <a href="{{ url_for('company_profile') }}" class="text-muted" style="text-align: center; margin-top: 5px;">Отмена</a>
+    </form>
+</div>
+{% endblock %}

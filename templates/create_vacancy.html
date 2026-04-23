@@ -1,0 +1,76 @@
+{% extends 'base.html' %}
+
+{% block content %}
+<div class="create-form-container">
+    <h2 style="margin-top: 0;" class="text-dark">Создание новой вакансии</h2>
+    <p class="text-muted" style="margin-bottom: 25px;">Заполните форму ниже, чтобы опубликовать позицию или стажировку для молодых исследователей.</p>
+
+    <!-- Форма отправляет данные POST-запросом на роут create_vacancy -->
+    <form action="{{ url_for('create_vacancy') }}" method="POST" class="flex-col">
+
+        <!-- Название должности -->
+        <div>
+            <label for="title" class="form-label">Название должности / проекта *</label>
+            <input type="text" id="title" name="title" placeholder="Например: Младший научный сотрудник (Data Science)" required class="form-control">
+        </div>
+
+        <!-- Зарплата (от и до) -->
+        <div class="grid-2-col" style="gap: 15px;">
+            <div style="width: 100%;">
+                <label for="salary_from" class="form-label">Зарплата от (₽)</label>
+                <input type="number" id="salary_from" name="salary_from" placeholder="50000" min="0" class="form-control">
+            </div>
+            <div style="width: 100%;">
+                <label for="salary_to" class="form-label">Зарплата до (₽)</label>
+                <input type="number" id="salary_to" name="salary_to" placeholder="100000" min="0" class="form-control">
+            </div>
+        </div>
+
+        <!-- Опыт и график -->
+        <div class="grid-2-col" style="gap: 15px;">
+            <div style="width: 100%;">
+                <label for="experience" class="form-label">Опыт работы *</label>
+                <select id="experience" name="experience" required class="form-control">
+                    <option value="" disabled selected>Выберите из списка</option>
+                    <option value="Без опыта">Без опыта / Стажировка</option>
+                    <option value="От 1 года до 3 лет">От 1 года до 3 лет</option>
+                    <option value="От 3 до 6 лет">От 3 до 6 лет</option>
+                    <option value="Более 6 лет">Более 6 лет</option>
+                </select>
+            </div>
+            <div style="width: 100%;">
+                <label for="schedule" class="form-label">График *</label>
+                <select id="schedule" name="schedule" required class="form-control">
+                    <option value="" disabled selected>Выберите график</option>
+                    <option value="Полный день">Полный день</option>
+                    <option value="Гибкий график">Гибкий график</option>
+                    <option value="Удаленная работа">Удаленная работа</option>
+                    <option value="Проектная работа">Проектная работа</option>
+                </select>
+            </div>
+        </div>
+
+        <!-- Категория (для мэтчинга с радаром исследователя) -->
+        <div>
+            <label for="category" class="form-label">Научное направление *</label>
+            <select id="category" name="category" required class="form-control">
+                <option value="" disabled selected>Для поиска по радару талантов</option>
+                <option value="IT и Data Science">IT и Data Science</option>
+                <option value="Биомед">Биомед</option>
+                <option value="Физмат и Инженерия">Физмат и Инженерия</option>
+                <option value="Экономика">Экономика</option>
+                <option value="Гуманитарные и общие">Гуманитарные и общие</option>
+            </select>
+        </div>
+
+        <!-- Описание -->
+        <div>
+            <label for="description" class="form-label">Описание (задачи, требования) *</label>
+            <textarea id="description" name="description" rows="6" placeholder="Подробно опишите, чем предстоит заниматься и что вы ожидаете от кандидата..." required class="form-control" style="resize: vertical; font-family: inherit;"></textarea>
+        </div>
+
+        <button type="submit" class="btn btn-success" style="margin-top: 10px; padding: 12px; font-size: 1.1em;">Опубликовать вакансию</button>
+        <a href="{{ url_for('company_profile') }}" class="text-muted" style="text-align: center; margin-top: 5px;">Отмена</a>
+    </form>
+</div>
+{% endblock %}

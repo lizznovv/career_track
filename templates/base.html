@@ -2,7 +2,7 @@
 <html lang="ru">
 <head>
     <meta charset="UTF-8">
-    <title>Карьерный трек исследователя</title>
+    <title>Карьерный трек</title>
     <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
 </head>
 <body>
@@ -10,41 +10,29 @@
         <div class="logo">ScienceTrack</div>
         <ul class="nav-links">
             <li><a href="/">Мероприятия</a></li>
-
-            <!-- Проверяем, залогинен ли пользователь -->
             {% if current_user.is_authenticated %}
-
                 {% if current_user.role == 'company' %}
-                    <a href="{{ url_for('search_talents') }}">Поиск талантов</a>
-                    <a href="{{ url_for('company_profile') }}">Компания</a>
+                    <li><a href="{{ url_for('search_talents') }}">Поиск талантов</a></li>
+                    <li><a href="{{ url_for('company_profile') }}">Компания</a></li>
                 {% else %}
-                    <a href="{{ url_for('vacancies') }}">Вакансии</a>
-                    <a href="{{ url_for('profile') }}">Профиль</a>
+                    <li><a href="{{ url_for('vacancies') }}">Вакансии</a></li>
+                    <li><a href="{{ url_for('profile') }}">Профиль</a></li>
                 {% endif %}
-
-                <a href="{{ url_for('logout') }}">Выйти</a>
-
+                <li><a href="{{ url_for('logout') }}">Выйти</a></li>
             {% else %}
-                <li><a href="/login">Вход</a></li>
-                <li><a href="/register">Регистрация</a></li>
+                <li><a href="{{ url_for('login') }}">Вход</a></li>
+                <li><a href="{{ url_for('register') }}">Регистрация</a></li>
             {% endif %}
         </ul>
     </nav>
 
     <div class="container">
-        <!-- Умный блок вывода сообщений -->
         {% with messages = get_flashed_messages(with_categories=true) %}
             {% if messages %}
                 {% for category, message in messages %}
-                    {% if category == 'success' %}
-                        <div style="background: #2ecc71; color: white; padding: 10px; margin-bottom: 20px; border-radius: 5px; text-align: center; font-weight: bold;">
-                            {{ message }}
-                        </div>
-                    {% else %}
-                        <div style="background: #e74c3c; color: white; padding: 10px; margin-bottom: 20px; border-radius: 5px; text-align: center; font-weight: bold;">
-                            {{ message }}
-                        </div>
-                    {% endif %}
+                    <div class="alert alert-{{ category }}">
+                        {{ message }}
+                    </div>
                 {% endfor %}
             {% endif %}
         {% endwith %}

@@ -1,99 +1,112 @@
 {% extends 'base.html' %}
-
 {% block content %}
 
-<div class="profile-header" style="margin-bottom: 20px;">
-    <h1>Компания: {{ company.name }}</h1>
-    <p class="status">
-        Статус работодателя:
-        <strong style="color: #2c3e50; font-size: 1.2em;">
-            {{ company_status }}
-        </strong>
-    </p>
+<div class="flex-row" style="justify-content: space-between; margin-bottom: 20px;">
+    <div>
+        <h1 style="margin-bottom: 5px;">Компания: {{ company.username }}</h1>
+        <p class="text-muted" style="margin-top: 0;">Статус работодателя: <strong class="text-success" style="color: #27ae60;">Активен ✓</strong></p>
+    </div>
+    <div>
+        <!-- ВОТ ОНА! Ожившая кнопка редактирования профиля -->
+        <a href="{{ url_for('edit_company_profile') }}" class="btn btn-secondary">✏ Редактировать профиль</a>
+    </div>
 </div>
 
-<div style="display: grid; grid-template-columns: 1fr 1fr; gap: 20px; align-items: start;">
+<div class="grid-2-col">
+    <!-- Левая колонка: Инфа и График -->
+    <div class="flex-col">
+        <div class="gamification-panel" style="text-align: left;">
+            <h2 style="margin-top: 0;">О компании</h2>
 
-    <!-- ЛЕВАЯ КОЛОНКА -->
-    <div>
-
-        <!-- Информация о компании -->
-        <div class="gamification-panel">
-            <h2>О компании</h2>
-            <p><strong>Отрасль:</strong> {{ company.industry }}</p>
-            <p><strong>Сайт:</strong> {{ company.website }}</p>
-            <p style="margin-top: 15px;">
-                {{ company.description }}
+            <!-- Выводим данные из таблицы CompanyProfile -->
+            <p><strong>Отрасль:</strong> {{ profile_data.industry if profile_data and profile_data.industry else 'Не указана' }}</p>
+            <p><strong>Сайт:</strong>
+                {% if profile_data and profile_data.website %}
+                    <a href="{{ profile_data.website }}" target="_blank" class="text-primary">{{ profile_data.website }}</a>
+                {% else %}
+                    <span class="text-muted">Не указан</span>
+                {% endif %}
             </p>
+            <div style="margin-top: 15px; background: #f9f9f9; padding: 15px; border-radius: 5px; border: 1px dashed #bdc3c7;">
+                {{ profile_data.description if profile_data and profile_data.description else 'Добавьте описание вашей компании, чтобы привлекать больше молодых талантов.' }}
+            </div>
         </div>
 
-        <!-- Статистика -->
-        <div class="history-panel" style="margin-top: 20px;">
-            <h3>Активность компании</h3>
+        <!-- КРАСИВЫЙ ГРАФИК КОМПАНИИ -->
+        <div class="history-panel">
+            <h3 style="margin-top: 0; text-align: center;">Наш научный фокус</h3>
+            <p class="text-muted" style="text-align: center; font-size: 0.85em;">Построен на основе ваших опубликованных вакансий</p>
 
-            <p>Открытых вакансий: <strong>{{ open_vacancies }}</strong></p>
-            <p>Всего откликов: <strong>{{ total_responses }}</strong></p>
-            <p>Сохранённых кандидатов: <strong>{{ saved_candidates }}</strong></p>
-            <p>Посещённых мероприятий: <strong>{{ visited_events }}</strong></p>
+            <div style="width: 250px; height: 250px; margin: 0 auto; margin-top: 20px;">
+                <canvas id="companyChart"></canvas>
+            </div>
+        </div>
+    </div>
+
+    <!-- Правая колонка: Статистика и Управление -->
+    <div class="flex-col">
+
+        <!-- КАРТОЧКИ KPI (Ключевые показатели) -->
+        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 15px;">
+            <div class="history-panel border-primary" style="text-align: center; padding: 15px;">
+                <h1 style="margin: 0; color: #3498db; font-size: 2.5em;">{{ open_vacancies }}</h1>
+                <small class="text-muted">Открытых вакансий</small>
+            </div>
+            <div class="history-panel border-success" style="text-align: center; padding: 15px;">
+                <h1 style="margin: 0; color: #2ecc71; font-size: 2.5em;">{{ total_responses }}</h1>
+                <small class="text-muted">Новых откликов</small>
+            </div>
+        </div>
+
+        <!-- Управление вакансиями -->
+        <div class="history-panel border-warning">
+            <h3 style="margin-top: 0;">Управление вакансиями</h3>
+            <p class="text-muted">Публикуйте стажировки и ищите исследователей в свои лаборатории и проекты.</p>
+            <div class="flex-row" style="margin-top: 15px;">
+                <a href="{{ url_for('create_vacancy') }}" class="btn btn-success w-100">Создать вакансию</a>
+                <a href="{{ url_for('company_vacancies') }}" class="btn btn-primary w-100">Мои вакансии</a>
+            </div>
+        </div>
+
+        <!-- Работа с кандидатами -->
+        <div class="history-panel border-success">
+            <h3 style="margin-top: 0;">База кандидатов</h3>
+            <p class="text-muted">Используйте умный поиск талантов по базе молодых ученых.</p>
+            <a href="{{ url_for('search_talents') }}" class="btn btn-primary w-100" style="margin-top: 10px;">Найти таланты</a>
         </div>
 
     </div>
-
-    <!-- ПРАВАЯ КОЛОНКА -->
-    <div>
-
-        <!-- Вакансии -->
-        <div class="history-panel" style="border-left: 4px solid #f39c12;">
-            <h3>💼 Наши вакансии</h3>
-
-            {% if vacancies %}
-                {% for vacancy in vacancies %}
-                    <div style="margin-bottom: 15px; padding-bottom: 10px; border-bottom: 1px solid #ecf0f1;">
-                        <strong>{{ vacancy.title }}</strong><br>
-                        <small>
-                            Откликов: {{ vacancy.responses_count }} |
-                            Просмотров: {{ vacancy.views }}
-                        </small><br>
-
-                        <a href="{{ url_for('vacancy_detail', vacancy_id=vacancy.id) }}"
-                           style="color: #2980b9;">
-                            Смотреть статистику
-                        </a>
-                    </div>
-                {% endfor %}
-            {% else %}
-                <p>У вас пока нет созданных вакансий.</p>
-            {% endif %}
-        </div>
-
-        <!-- Последние кандидаты -->
-        <div class="history-panel" style="margin-top: 20px; border-left: 4px solid #27ae60;">
-            <h3>🔍 Новые таланты</h3>
-
-            {% if candidates %}
-                {% for candidate in candidates %}
-                    <div style="margin-bottom: 12px;">
-                        <strong>{{ candidate.username }}</strong><br>
-                        <small>
-                            Уровень {{ candidate.level }} |
-                            {{ candidate.direction }}
-                        </small>
-                    </div>
-                {% endfor %}
-            {% else %}
-                <p>Пока нет новых кандидатов.</p>
-            {% endif %}
-        </div>
-
-        <!-- CTA -->
-        <div class="history-panel" style="margin-top: 20px; text-align: center;">
-            <a href="" class="btn">
-                Создать вакансию
-            </a>
-        </div>
-
-    </div>
-
 </div>
 
+<!-- ПОДКЛЮЧАЕМ CHART.JS (Для кольцевого графика) -->
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<script>
+    document.addEventListener('DOMContentLoaded', function() {
+        const ctx = document.getElementById('companyChart').getContext('2d');
+        const labels = JSON.parse('{{ chart_labels | safe }}');
+        const data = JSON.parse('{{ chart_data | safe }}');
+        const colors = JSON.parse('{{ chart_colors | safe }}');
+
+        new Chart(ctx, {
+            type: 'doughnut',
+            data: {
+                labels: labels,
+                datasets:[{
+                    data: data,
+                    backgroundColor: colors,
+                    borderWidth: 2,
+                    hoverOffset: 5 // Анимация при наведении
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: {
+                    legend: { position: 'bottom' }
+                },
+                cutout: '65%' // Делаем "дырку" в центре графика побольше (выглядит стильнее)
+            }
+        });
+    });
+</script>
 {% endblock %}

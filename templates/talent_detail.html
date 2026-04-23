@@ -1,0 +1,58 @@
+{% extends 'base.html' %}
+{% block content %}
+<a href="{{ url_for('search_talents') }}" class="text-muted">❮ Назад к списку</a>
+
+<div style="margin-top: 20px; margin-bottom: 20px;">
+    <h1>Кандидат: {{ talent.username }}</h1>
+    <p class="text-muted">Контакт: <a href="mailto:{{ talent.mail }}">{{ talent.mail }}</a></p>
+</div>
+
+<div class="grid-2-col">
+    <!-- Левая колонка: Радар -->
+    <div class="gamification-panel">
+        <h3>Компетенции ({{ talent.points }} XP)</h3>
+        <div class="radar-container">
+            <canvas id="talentRadar" width="300" height="300"></canvas>
+        </div>
+    </div>
+
+    <!-- Правая колонка: Подтвержденные дипломы -->
+    <div class="history-panel border-success">
+        <h3>🏆 Подтвержденные достижения</h3>
+        <ul class="list-unstyled">
+            {% for p in talent.participations if p.status == 'completed' %}
+                <li class="list-item">
+                    <strong>{{ p.event_title }}</strong> <br>
+                    <span class="badge badge-green">{{ p.achievement }}</span>
+                    {% if p.certificate_file %}
+                        <a href="{{ url_for('static', filename='uploads/' ~ p.certificate_file) }}" target="_blank" class="action-link" style="margin-left: 10px;">📄 Посмотреть диплом</a>
+                    {% endif %}
+                </li>
+            {% else %}
+                <p class="text-muted">У кандидата пока нет загруженных дипломов.</p>
+            {% endfor %}
+        </ul>
+    </div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<script>
+    document.addEventListener('DOMContentLoaded', function() {
+        const ctx = document.getElementById('talentRadar').getContext('2d');
+        new Chart(ctx, {
+            type: 'radar',
+            data: {
+                labels: JSON.parse('{{ radar_labels | safe }}'),
+                datasets:[{
+                    label: 'Участий',
+                    data: JSON.parse('{{ radar_data | safe }}'),
+                    backgroundColor: 'rgba(46, 204, 113, 0.4)',
+                    borderColor: 'rgba(39, 174, 96, 1)',
+                    pointBackgroundColor: 'rgba(39, 174, 96, 1)',
+                }]
+            },
+            options: { scales: { r: { beginAtZero: true, ticks: { stepSize: 1, precision: 0 } } }, plugins: { legend: { display: false } } }
+        });
+    });
+</script>
+{% endblock %}

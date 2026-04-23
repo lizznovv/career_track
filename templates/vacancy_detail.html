@@ -1,0 +1,33 @@
+{% extends 'base.html' %}
+{% block content %}
+<a href="{{ url_for('company_vacancies') }}" class="text-muted">❮ Назад к вакансиям</a>
+
+<div class="history-panel border-warning" style="margin-top: 20px;">
+    <span class="badge badge-blue">{{ vacancy.category }}</span>
+    <h1 style="margin-top: 10px;">{{ vacancy.title }}</h1>
+    
+    <div class="flex-row" style="margin-bottom: 20px;">
+        <strong class="text-dark">
+            {% if vacancy.salary_from and vacancy.salary_to %}
+                {{ vacancy.salary_from }} - {{ vacancy.salary_to }} ₽
+            {% elif vacancy.salary_from %}
+                от {{ vacancy.salary_from }} ₽
+            {% else %}
+                Зарплата по результатам собеседования
+            {% endif %}
+        </strong>
+    </div>
+
+    <div class="flex-row text-muted" style="margin-bottom: 20px; gap: 20px;">
+        <span><strong>Опыт:</strong> {{ vacancy.experience }}</span>
+        <span><strong>График:</strong> {{ vacancy.schedule }}</span>
+    </div>
+
+    <h3>Описание</h3>
+    <p style="white-space: pre-wrap;">{{ vacancy.description }}</p>
+
+    <div style="margin-top: 30px; padding-top: 20px; border-top: 1px solid #ecf0f1;">
+        <p class="text-muted">Опубликовано: {{ vacancy.created_at.strftime('%Y-%m-%d') }}</p>
+    </div>
+</div>
+{% endblock %}
