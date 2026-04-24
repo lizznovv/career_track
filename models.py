@@ -1,7 +1,8 @@
 from flask_sqlalchemy import SQLAlchemy
 from flask_login import UserMixin
 from datetime import datetime
-from pydantic import BaseModel, Field, EmailStr, field_validator
+from typing import Optional
+from pydantic import BaseModel, Field, EmailStr, field_validator, model_validator
 from enum import Enum
 
 db = SQLAlchemy()
@@ -92,3 +93,63 @@ class InternalVacancy(db.Model):
     category = db.Column(db.String(100))
     description = db.Column(db.Text, nullable=False)
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
+
+class InternalVacancyValidation(BaseModel):
+    company_id: int = Field(gt=0)
+    title: str = Field(min_length=3, max_length=250)
+
+    salary_from: Optional[int] = Field(default=None, ge=0)
+    salary_to: Optional[int] = Field(default=None, ge=0)
+
+    experience: Optional[str] = Field(default=None, max_length=100)
+    schedule: Optional[str] = Field(default=None, max_length=100)
+    category: Optional[str] = Field(default=None, max_length=100)
+
+    description: str = Field(min_length=20)
+
+    @field_validator("title")
+    @classmethod
+    def validate_title(cls, value):
+        value = value.strip()
+
+        if len(value) < 3:
+            raise ValueError("Название вакансии минимум 3 символа")
+
+        if len(value) > 250:
+            raise ValueError("Название вакансии слишком длинное")
+
+        return value
+
+    @field_validator("description")
+    @classmethod
+    def validate_description(cls, value):
+        value = value.strip()
+
+        if len(value) < 20:
+            raise ValueError("Описание минимум 20 символов")
+
+        return value
+
+    @field_validator("experience", "schedule", "category")
+    @classmethod
+    def validate_optional_fields(cls, value):
+        if value is None:
+            return value
+
+        value = value.strip()
+
+        if len(value) > 100:
+            raise ValueError("Слишком длинное значение")
+
+        return value
+
+    @model_validator(mode="after")
+    def validate_salary_range(self):
+        if (
+                self.salary_from is not None
+                and self.salary_to is not None
+                and self.salary_from > self.salary_to
+        ):
+            raise ValueError("Зарплата 'от' не может быть больше зарплаты 'до'")
+
+        return self

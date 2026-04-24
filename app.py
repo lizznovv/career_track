@@ -2,7 +2,7 @@ from flask import Flask, render_template, request, redirect, url_for, flash
 from flask_login import LoginManager, login_user, logout_user, login_required, current_user
 from werkzeug.security import generate_password_hash, check_password_hash
 from services.api_client import get_events, get_vacancies
-from models import db, User, Participation, FavoriteEvent, FavoriteVacancy, RegisterValidation, InternalVacancy, CompanyProfile
+from models import db, User, Participation, FavoriteEvent, FavoriteVacancy, RegisterValidation, InternalVacancy, CompanyProfile, InternalVacancyValidation
 from collections import Counter # Понадобится для радара
 import json # Понадобится для передачи данных в JS
 import os
@@ -489,16 +489,26 @@ def create_vacancy():
 
     if request.method == 'POST':
         # Сюда можно добавить валидацию Pydantic, как вы делали при регистрации!
-        new_vacancy = InternalVacancy(
-            company_id=current_user.id,
-            title=request.form.get('title'),
-            salary_from=request.form.get('salary_from') or None,
-            salary_to=request.form.get('salary_to') or None,
-            experience=request.form.get('experience'),
-            schedule=request.form.get('schedule'),
-            category=request.form.get('category'),
-            description=request.form.get('description')
-        )
+
+        try:
+            new_vacancy = InternalVacancyValidation(
+                company_id=current_user.id,
+                title=request.form.get('title'),
+                salary_from=request.form.get('salary_from') or None,
+                salary_to=request.form.get('salary_to') or None,
+                experience=request.form.get('experience'),
+                schedule=request.form.get('schedule'),
+                category=request.form.get('category'),
+                description=request.form.get('description')
+            )
+        except ValidationError as e:
+            flash("Некорректные данные")
+
+            for error in e.errors():
+                flash(error['msg'])
+
+            return redirect(url_for('create_vacancy'))
+
         db.session.add(new_vacancy)
         db.session.commit()
         flash('Вакансия успешно опубликована!', 'success')
